@@ -19,8 +19,13 @@ import numpy as np
 import re
 import pickle
 
-
 def load_data(database_filepath):
+    '''
+    Loads data from the input database
+    Separates the variables from the labels (X=variables, Y=label)
+    Converts to the arrays
+    Outputs the arrays and the columns names
+    '''
     engine = create_engine('sqlite:///{}'.format(database_filepath))
     df = pd.read_sql_table('disaster_msg_cats', engine)
     X = df.iloc[:, :1].values.flatten()
@@ -29,24 +34,33 @@ def load_data(database_filepath):
 
 
 def tokenize(text):
-    # create a list of stop words
+    '''
+    Process Text by normalizing, tokenizing, lemmatizing
+    And outputs as clean tokens.
+    '''
     stop_words = stopwords.words("english")
     # normalize case and remove punctuation
     text = re.sub(r"[^a-zA-Z0-9]", " ", text.lower())
+    
     # tokenize text
     tokens = word_tokenize(text)
+
     # initiate lemmatizer
     lemmatizer = WordNetLemmatizer()
+
     # iterate through each token
     clean_tokens = []
-    # lemmatize and remove leading/trailing white space if the word is not stop_words
+    # lemmatize, normalize case, and remove leading/trailing white space
     clean_tokens = [lemmatizer.lemmatize(tok.strip()) for tok in tokens if tok not in stop_words]
 
     return clean_tokens
 
 
 def build_model():
-    # Create a pipeline with the following transformers
+    '''
+    Building multi-output classification model
+    Using a pipeline
+    '''
     pipeline = Pipeline([('vect', CountVectorizer(tokenizer=tokenize)), 
                  ('tfidf', TfidfTransformer()),
                  ('clf', MultiOutputClassifier(DecisionTreeClassifier()))])
@@ -55,33 +69,29 @@ def build_model():
 
 def evaluate_model(model, X_test, Y_test, category_names):
     '''
-    Iterate through the precision, recall, and f1 scores for each category.
-    And returns the average of all scores. 
+    Evaluating the model using the test data
+    And displays the score for each category
     '''
     y_pred = model.predict(X_test)
         
-    report_data = []
     for i in range(len(category_names)):
         lines = classification_report(Y_test[:,i], y_pred[:,i]).split('\n')
-
-        for line in lines[5:-1]:
-            row = {}
-            row_data = line.split('      ')
-            if len(row_data) == 5:
-                row['precision'] = float(row_data[1])
-                row['recall'] = float(row_data[1])
-                row['f1_score'] = float(row_data[3])
-                report_data.append(row)
-    
-    return pd.DataFrame.from_dict(report_data).mean()
+        print('{}:'.format(category_names[i]))
+        for line in lines:
+            print(line)
 
 
 def save_model(model, model_filepath):
-    # Save the model in pickle file
+    '''
+    Save the data in pickle file.
+    '''
     pickle.dump(model, open(model_filepath, 'wb'))
 
 
 def main():
+    '''
+    Multi-output classifier training script
+    '''
     if len(sys.argv) == 3:
         database_filepath, model_filepath = sys.argv[1:]
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
@@ -92,6 +102,9 @@ def main():
         model = build_model()
         
         print('Training model...')
+        criterions = ['gini', 'entropy']
+        parameters = dict(clf__estimator__criterion=criterions)
+        model = GridSearchCV(model, param_grid=parameters)
         model.fit(X_train, Y_train)
         
         print('Evaluating model...')

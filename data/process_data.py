@@ -3,25 +3,27 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 def load_data(messages_filepath, categories_filepath):
+    '''
+    Loads 2 input files from the arguments
+    and converts to one dataframe.
+    '''
     messages = pd.read_csv(messages_filepath, index_col = 0)
     categories = pd.read_csv(categories_filepath, index_col = 0)
+#     categories = categories['categories'].str.split(';', expand=True)
     
     return pd.concat([messages, categories], axis=1)
 
 def clean_data(df):
     '''
-    Expand the categories to each column.  
-    Apply the category names as column names
-    And only leave numeric values in the cells.
-    Remove the original categories column 
-    And append the new expanded category columns
-    To the message columns.
-    Return the new dataframe
+    Take a dataframe as input.
+    Transpose 'categories' column into multiple columns.
+    Cleans the categories data so the cell values contain binary.
+    Output the dataframe.
     '''
-    df_temp = df['categories'].str.split(';', expand=True)
-    row = df_temp.iloc[:1, :].values.flatten()
-    category_colnames = list(map(lambda x: x[:-2], row))
-    df_temp.columns = category_colnames
+    df_temp = df['categories'].str.split(';', expand=True) # Transpose the ';' separated text into multiple columns
+    row = df_temp.iloc[:1, :].values.flatten() # Take the first row of the dataframe
+    category_colnames = list(map(lambda x: x[:-2], row))  # Extract the string portion of each item into a list
+    df_temp.columns = category_colnames  # Apply the list as column names
 
     for column in category_colnames:
     # set each value to be the last character of the string
@@ -29,18 +31,31 @@ def clean_data(df):
 
         # convert column from string to numeric
         df_temp[column] = df_temp[column].astype(int)
-        
+    
+    ## Upon reviewing the categories data, 'related' had 0, 1, 2.  
+    ## For value 2, the rest of the rows were all 0's which match the pattern of value 0,
+    ## which means 2 represents the same meaning as 0.
+    ## In order to convert the data to binary, 2 is replaced with 0
+    df_temp['related'] = df_temp['related'].replace(2,0)
+
     df = pd.concat([df.drop(columns='categories'), df_temp], axis=1)
         
     return df.drop_duplicates()
     
     
 def save_data(df, database_filename):
+    '''
+    Save the input dataframe to SQLite database with the input database name
+    '''
     engine = create_engine('sqlite:///{}'.format(database_filename))
     df.to_sql('disaster_msg_cats', engine, index=False, if_exists='replace')  
 
 
 def main():
+    '''
+    Cleans and transform the input data into ML ready dataframe
+    And saves it to a database.
+    '''
     if len(sys.argv) == 4:
 
         messages_filepath, categories_filepath, database_filepath = sys.argv[1:]

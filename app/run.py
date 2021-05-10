@@ -14,23 +14,23 @@ from sqlalchemy import create_engine
 
 app = Flask(__name__)
 
-def tokenize(text):
-    tokens = word_tokenize(text)
-    lemmatizer = WordNetLemmatizer()
+# def tokenize(text):
+#     tokens = word_tokenize(text)
+#     lemmatizer = WordNetLemmatizer()
 
-    clean_tokens = []
-    for tok in tokens:
-        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
-        clean_tokens.append(clean_tok)
+#     clean_tokens = []
+#     for tok in tokens:
+#         clean_tok = lemmatizer.lemmatize(tok).lower().strip()
+#         clean_tokens.append(clean_tok)
 
-    return clean_tokens
+#     return clean_tokens
 
 # load data
-engine = create_engine('sqlite:////data/DisasterResponse.db')
+engine = create_engine('sqlite:///../data/DisasterResponse.db')
 df = pd.read_sql_table('disaster_msg_cats', engine)
 
 # load model
-model = joblib.load("/models/classifier.pkl")
+model = joblib.load("../models/classifier.pkl")
 
 
 # index webpage displays cool visuals and receives user input text for model
@@ -45,7 +45,7 @@ def index():
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
 
-    ## for the number of message categories identified for each message grouped by genre
+    ## for number of message categories grouped by genre
     df_cats = pd.melt(df.iloc[:, 2:], id_vars=['genre'], value_vars = df.iloc[:, 3:].columns.tolist())
     df_cats = df_cats[df_cats['value']==1].groupby(['genre','variable']).sum().reset_index().set_index('genre')
     df_direct = df_cats[df_cats.index=='direct']
